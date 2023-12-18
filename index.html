@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DZ07</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+  </style>
+</head>
+<body>
+  <div id="app">
+    <button @click="loadStarships">Завантажити пілотів</button>
+    <div v-for="starship in starships" :key="starship.name">
+      <h2>{{ starship.name }}</h2>
+      <p>Модель: {{ starship.model }}</p>
+      <p>Виробник: {{ starship.manufacturer }}</p>
+      <button @click="viewPilots(starship)" :disabled="starship.pilots.length === 0">
+        Дивитись пілотів
+      </button>
+    </div>
+
+    <div id="pagination">
+      <button @click="loadPage('previous')" :disabled="!previousPage">Назад</button>
+      <button @click="loadPage('next')" :disabled="!nextPage">Далі</button>
+    </div>
+
+    <div class="modal" v-if="showModal">
+      <div class="modal-content">
+        <template v-if="pilots.length > 0">
+          <pilot-info v-for="pilot in pilots" :key="pilot.name" :pilot="pilot"></pilot-info>
+          <button @click="closeModal">Закрити</button>
+        </template>
+        <template v-else>
+          <p>Немає доступних пілотів</p>
+          <button @click="closeModal">Закрити</button>
+        </template>
+      </div>
+    </div>
+
+    <ul v-if="albums.length > 0">
+      <li v-for="album in albums" :key="album.id">{{ album.title }}</li>
+    </ul>
+  </div>
+
+  <script>
+    Vue.component("pilot-info", {
+      props: {
+        pilot: Object,
+      },
+      template: `
+        <div>
+          <h3>{{ pilot.name }}</h3>
+          <p v-if="pilot.height">Height: {{ pilot.height }}</p>
+          <p v-if="pilot.mass">Mass: {{ pilot.mass }}</p>
+        </div>
+      `,
+    });
+
+    new Vue({
+      el: "#app",
+      data: {
+        starships: [],
+        pilots: [],
+        currentPage: 1,
+        previousPage: null,
+        nextPage: null,
+        showModal: false,
+        albums: [], 
+        selectedUserId: 1, 
+      },
+      methods: {
+        loadStarships() {
+          fetch("https://swapi.dev/api/starships/")
+            .then((response) => response.json())
+            .then((data) => {
+              this.starships = data.results;
+              this.previousPage = data.previous;
+              this.nextPage = data.next;
+            });
+        },
+        viewPilots(starship) {
+          this.pilots = [];
+          Promise.all(
+            starship.pilots.map((pilotUrl) => {
+              return fetch(pilotUrl)
+                .then((response) => response.json())
+                .then((data) => {
+                  this.pilots.push(data);
+                })
+                .catch((error) => {
+                  console.error('Помилка отримання даних пілота', error);
+                  this.pilots.push({ name: 'Unknown' });
+                });
+            })
+          ).then(() => {
+            this.showModal = true;
+          });
+        },
+        loadPage(direction) {
+          const url = direction === "next" ? this.nextPage : this.previousPage;
+
+          fetch(url)
+            .then((response) => response.json())
+            .then((data) => {
+              this.starships = data.results;
+              this.previousPage = data.previous;
+              this.nextPage = data.next;
+            });
+        },
+        closeModal() {
+          this.showModal = false;
+        },
+      },
+    });
+  </script>
+  </body>
+  </html>
